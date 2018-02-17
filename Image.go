@@ -18,6 +18,8 @@ package imagequant
 
 import (
 	"errors"
+	"image"
+	"image/color"
 	"unsafe"
 )
 
@@ -33,8 +35,8 @@ type Image struct {
 }
 
 // Callers MUST call Release() on the returned object to free memory.
-func NewImage(attr *Attributes, rgba32data string, width, height int, gamma float64) (*Image, error) {
-	pImg := C.liq_image_create_rgba(attr.p, unsafe.Pointer(C.CString(rgba32data)), C.int(width), C.int(height), C.double(gamma))
+func NewImage(attr *Attributes, rgba32data []byte, width, height int, gamma float64) (*Image, error) {
+	pImg := C.liq_image_create_rgba(attr.p, unsafe.Pointer(&rgba32data[0]), C.int(width), C.int(height), C.double(gamma))
 	if pImg == nil {
 		return nil, errors.New("Failed to create image (invalid argument)")
 	}
@@ -63,4 +65,45 @@ func (this *Image) Quantize(attr *Attributes) (*Result, error) {
 	}
 
 	return &res, nil
+}
+
+func GoImageToRgba32(im image.Image) []byte {
+	w := im.Bounds().Max.X
+	h := im.Bounds().Max.Y
+	ret := make([]byte, w*h*4)
+
+	p := 0
+
+	for y := 0; y < h; y += 1 {
+		for x := 0; x < w; x += 1 {
+			r16, g16, b16, a16 := im.At(x, y).RGBA() // Each value ranges within [0, 0xffff]
+
+			ret[p+0] = uint8(r16 >> 8)
+			ret[p+1] = uint8(g16 >> 8)
+			ret[p+2] = uint8(b16 >> 8)
+			ret[p+3] = uint8(a16 >> 8)
+			p += 4
+		}
+	}
+
+	return ret
+}
+
+func Rgb8PaletteToGoImage(w, h int, rgb8data []byte, pal color.Palette) image.Image {
+	rect := image.Rectangle{
+		Max: image.Point{
+			X: w,
+			Y: h,
+		},
+	}
+
+	ret := image.NewPaletted(rect, pal)
+
+	for y := 0; y < h; y += 1 {
+		for x := 0; x < w; x += 1 {
+			ret.SetColorIndex(x, y, rgb8data[y*w+x])
+		}
+	}
+
+	return ret
 }

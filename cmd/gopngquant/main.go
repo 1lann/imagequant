@@ -97,7 +97,7 @@ func Crush(sourcefile, destfile string, speed int) error {
 
 	rgba32data := GoImageToRgba32(img)
 
-	iqm, err := imagequant.NewImage(attr, string(rgba32data), width, height, 0)
+	iqm, err := imagequant.NewImage(attr, rgba32data, width, height, 0)
 	if err != nil {
 		return fmt.Errorf("NewImage: %s", err.Error())
 	}
