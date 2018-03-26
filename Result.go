@@ -71,6 +71,10 @@ func (this *Result) GetOutputGamma() float64 {
 	return float64(C.liq_get_output_gamma(this.p))
 }
 
+func (this *Result) SetOutputImage(img *Image) {
+	this.im = img
+}
+
 func (this *Result) WriteRemappedImage() ([]byte, error) {
 	if this.im.released {
 		return nil, ErrUseAfterFree
