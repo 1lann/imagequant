@@ -229,7 +229,6 @@ LIQ_EXPORT bool liq_crash_if_invalid_handle_pointer_given(const liq_attr *user_s
     }
 
     if (user_supplied_pointer->magic_header == liq_freed_magic) {
-        fprintf(stderr, "%s used after being freed", expected_magic_header);
         // this is not normal error handling, this is programmer error that should crash the program.
         // program cannot safely continue if memory has been used after it's been freed.
         // abort() is nasty, but security vulnerability may be worse.
