@@ -68,14 +68,12 @@ func (this *Image) Quantize(attr *Attributes) (*Result, error) {
 }
 
 func GoImageToRgba32(im image.Image) []byte {
-	w := im.Bounds().Max.X
-	h := im.Bounds().Max.Y
-	ret := make([]byte, w*h*4)
+	ret := make([]byte, im.Bounds().Dx()*im.Bounds().Dy()*4)
 
 	p := 0
 
-	for y := 0; y < h; y += 1 {
-		for x := 0; x < w; x += 1 {
+	for y := im.Bounds().Min.Y; y < im.Bounds().Max.Y; y++ {
+		for x := im.Bounds().Min.X; x < im.Bounds().Max.X; x++ {
 			r16, g16, b16, a16 := im.At(x, y).RGBA() // Each value ranges within [0, 0xffff]
 
 			ret[p+0] = uint8(r16 >> 8)
