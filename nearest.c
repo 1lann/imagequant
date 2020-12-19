@@ -1,20 +1,9 @@
 /*
-© 2011-2015 by Kornel Lesiński.
-
-This file is part of libimagequant.
-
-libimagequant is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-libimagequant is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with libimagequant. If not, see <http://www.gnu.org/licenses/>.
+** © 2009-2015 by Kornel Lesiński.
+** © 1989, 1991 by Jef Poskanzer.
+** © 1997, 2000, 2002 by Greg Roelofs; based on an idea by Stefan Schneider.
+**
+** See COPYRIGHT file for license.
 */
 
 #include "libimagequant.h"
@@ -30,22 +19,30 @@ typedef struct vp_sort_tmp {
 
 typedef struct vp_search_tmp {
     float distance;
+    float distance_squared;
     unsigned int idx;
     int exclude;
 } vp_search_tmp;
 
+struct leaf {
+    f_pixel color;
+    unsigned int idx;
+};
+
 typedef struct vp_node {
     struct vp_node *near, *far;
     f_pixel vantage_point;
-    float radius;
-    unsigned int idx;
+    float radius, radius_squared;
+    struct leaf *rest;
+    unsigned short idx;
+    unsigned short restcount;
 } vp_node;
 
 struct nearest_map {
     vp_node *root;
     const colormap_item *palette;
     float nearest_other_color_dist[256];
-    mempool mempool;
+    mempoolptr mempool;
 };
 
 static void vp_search_node(const vp_node *node, const f_pixel *const needle, vp_search_tmp *const best_candidate);
@@ -56,7 +53,7 @@ static int vp_compare_distance(const void *ap, const void *bp) {
     return a > b ? 1 : -1;
 }
 
-static void vp_sort_indexes_by_distance(const f_pixel vantage_point, vp_sort_tmp *indexes, int num_indexes, const colormap_item items[]) {
+static void vp_sort_indexes_by_distance(const f_pixel vantage_point, vp_sort_tmp indexes[], int num_indexes, const colormap_item items[]) {
     for(int i=0; i < num_indexes; i++) {
         indexes[i].distance_squared = colordifference(vantage_point, items[indexes[i].idx].acolor);
     }
@@ -66,7 +63,7 @@ static void vp_sort_indexes_by_distance(const f_pixel vantage_point, vp_sort_tmp
 /*
  * Usually it should pick farthest point, but picking most popular point seems to make search quicker anyway
  */
-static int vp_find_best_vantage_point_index(vp_sort_tmp *indexes, int num_indexes, const colormap_item items[]) {
+static int vp_find_best_vantage_point_index(vp_sort_tmp indexes[], int num_indexes, const colormap_item items[]) {
     int best = 0;
     float best_popularity = items[indexes[0].idx].popularity;
     for(int i = 1; i < num_indexes; i++) {
@@ -78,7 +75,7 @@ static int vp_find_best_vantage_point_index(vp_sort_tmp *indexes, int num_indexe
     return best;
 }
 
-static vp_node *vp_create_node(mempool *m, vp_sort_tmp *indexes, int num_indexes, const colormap_item items[]) {
+static vp_node *vp_create_node(mempoolptr *m, vp_sort_tmp indexes[], int num_indexes, const colormap_item items[]) {
     if (num_indexes <= 0) {
         return NULL;
     }
@@ -90,6 +87,7 @@ static vp_node *vp_create_node(mempool *m, vp_sort_tmp *indexes, int num_indexes
             .vantage_point = items[indexes[0].idx].acolor,
             .idx = indexes[0].idx,
             .radius = MAX_DIFF,
+            .radius_squared = MAX_DIFF,
         };
         return node;
     }
@@ -110,18 +108,28 @@ static vp_node *vp_create_node(mempool *m, vp_sort_tmp *indexes, int num_indexes
         .vantage_point = items[ref_idx].acolor,
         .idx = ref_idx,
         .radius = sqrtf(indexes[half_idx].distance_squared),
+        .radius_squared = indexes[half_idx].distance_squared,
     };
-    node->near = vp_create_node(m, indexes, half_idx, items);
-    node->far = vp_create_node(m, &indexes[half_idx], num_indexes - half_idx, items);
+    if (num_indexes < 7) {
+        node->rest = mempool_alloc(m, sizeof(node->rest[0]) * num_indexes, 0);
+        node->restcount = num_indexes;
+        for(int i=0; i < num_indexes; i++) {
+            node->rest[i].idx = indexes[i].idx;
+            node->rest[i].color = items[indexes[i].idx].acolor;
+        }
+    } else {
+        node->near = vp_create_node(m, indexes, half_idx, items);
+        node->far = vp_create_node(m, &indexes[half_idx], num_indexes - half_idx, items);
+    }
 
     return node;
 }
 
 LIQ_PRIVATE struct nearest_map *nearest_init(const colormap *map) {
-    mempool m = NULL;
+    mempoolptr m = NULL;
     struct nearest_map *handle = mempool_create(&m, sizeof(handle[0]), sizeof(handle[0]) + sizeof(vp_node)*map->colors+16, map->malloc, map->free);
 
-    vp_sort_tmp indexes[map->colors];
+    LIQ_ARRAY(vp_sort_tmp, indexes, map->colors);
 
     for(unsigned int i=0; i < map->colors; i++) {
         indexes[i].idx = i;
@@ -137,6 +145,7 @@ LIQ_PRIVATE struct nearest_map *nearest_init(const colormap *map) {
     for(unsigned int i=0; i < map->colors; i++) {
         vp_search_tmp best = {
             .distance = MAX_DIFF,
+            .distance_squared = MAX_DIFF,
             .exclude = i,
         };
         vp_search_node(root, &map->palette[i].acolor, &best);
@@ -148,15 +157,29 @@ LIQ_PRIVATE struct nearest_map *nearest_init(const colormap *map) {
 
 static void vp_search_node(const vp_node *node, const f_pixel *const needle, vp_search_tmp *const best_candidate) {
     do {
-        const float distance = sqrtf(colordifference(node->vantage_point, *needle));
+        const float distance_squared = colordifference(node->vantage_point, *needle);
+        const float distance = sqrtf(distance_squared);
 
-        if (distance < best_candidate->distance && best_candidate->exclude != node->idx) {
+        if (distance_squared < best_candidate->distance_squared && best_candidate->exclude != node->idx) {
             best_candidate->distance = distance;
+            best_candidate->distance_squared = distance_squared;
             best_candidate->idx = node->idx;
         }
 
+        if (node->restcount) {
+            for(int i=0; i < node->restcount; i++) {
+                const float distance_squared = colordifference(node->rest[i].color, *needle);
+                if (distance_squared < best_candidate->distance_squared && best_candidate->exclude != node->rest[i].idx) {
+                    best_candidate->distance = sqrtf(distance_squared);
+                    best_candidate->distance_squared = distance_squared;
+                    best_candidate->idx = node->rest[i].idx;
+                }
+            }
+            return;
+        }
+
         // Recurse towards most likely candidate first to narrow best candidate's distance as soon as possible
-        if (distance < node->radius) {
+        if (distance_squared < node->radius_squared) {
             if (node->near) {
                 vp_search_node(node->near, needle, best_candidate);
             }
@@ -166,7 +189,7 @@ static void vp_search_node(const vp_node *node, const f_pixel *const needle, vp_
             if (node->far && distance >= node->radius - best_candidate->distance) {
                 node = node->far; // Fast tail recursion
             } else {
-                break;
+                return;
             }
         } else {
             if (node->far) {
@@ -175,7 +198,7 @@ static void vp_search_node(const vp_node *node, const f_pixel *const needle, vp_
             if (node->near && distance <= node->radius + best_candidate->distance) {
                 node = node->near; // Fast tail recursion
             } else {
-                break;
+                return;
             }
         }
     } while(true);
@@ -190,6 +213,7 @@ LIQ_PRIVATE unsigned int nearest_search(const struct nearest_map *handle, const 
 
     vp_search_tmp best_candidate = {
         .distance = sqrtf(guess_diff),
+        .distance_squared = guess_diff,
         .idx = likely_colormap_index,
         .exclude = -1,
     };
