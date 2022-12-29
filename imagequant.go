@@ -21,6 +21,9 @@ import (
 )
 
 /*
+#cgo amd64 LDFLAGS: -L${SRCDIR}/lib -l:libimagequant_sys_linux_amd64.a -lm
+#cgo arm64 LDFLAGS: -L${SRCDIR}/lib -l:libimagequant_sys_linux_arm64.a -lm
+
 #include "libimagequant.h"
 
 const char* liqVersionString() {

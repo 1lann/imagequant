@@ -15,7 +15,15 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 -----------------------------------------------------------------------------
 
 
-libimagequant which is included here as well is however licensed under GPLv3, reproduced below:
+libimagequant which is included in `libimagequant.h` and `lib/` is licensed under GPLv3, which is
+reproduced below.
+
+You are entitled to the source code of the libimagequant library, which can be found at
+https://github.com/ImageOptim/libimagequant.
+See `lib/VERSION` for information regarding the exact commit hash used to produce these libraries.
+
+If you statically link against this library, GPLv3 components will be included and your code will be
+subject to GPLv3.
 
 libimagequant is derived from code by Jef Poskanzer and Greg Roelofs
 licensed under pngquant's original license (at the end of this file),

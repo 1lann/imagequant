@@ -13,8 +13,8 @@
 #define LIQ_EXPORT extern
 #endif
 
-#define LIQ_VERSION 21300
-#define LIQ_VERSION_STRING "2.13.0"
+#define LIQ_VERSION 40000
+#define LIQ_VERSION_STRING "4.0.0"
 
 #ifndef LIQ_PRIVATE
 #if defined(__GNUC__) || defined (__llvm__)
@@ -72,7 +72,7 @@ typedef struct liq_histogram_entry {
 } liq_histogram_entry;
 
 LIQ_EXPORT LIQ_USERESULT liq_attr* liq_attr_create(void);
-LIQ_EXPORT LIQ_USERESULT liq_attr* liq_attr_create_with_allocator(void* (*malloc)(size_t), void (*free)(void*));
+LIQ_EXPORT LIQ_USERESULT liq_attr* liq_attr_create_with_allocator(void* removed, void *unsupported);
 LIQ_EXPORT LIQ_USERESULT liq_attr* liq_attr_copy(const liq_attr *orig) LIQ_NONNULL;
 LIQ_EXPORT void liq_attr_destroy(liq_attr *attr) LIQ_NONNULL;
 

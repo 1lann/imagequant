@@ -1,0 +1,9 @@
+These pre-built libraries were built from
+https://github.com/ImageOptim/libimagequant
+Commit hash 662699b9a108e06fe2d68dd3c32c6d8cf45a20b3
+On 2022-12-28
+With rustc 1.66.0 (69f9c33d7 2022-12-12)
+
+Built with:
+    RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target=x86_64-unknown-linux-gnu
+    RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target=aarch64-unknown-linux-gnu

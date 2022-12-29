@@ -1,5 +1,7 @@
 package imagequant
 
+const libimagequantCommitSHA = "662699b9a108e06fe2d68dd3c32c6d8cf45a20b3"
+
 // Returns the license of libimagequant (GPLv3).
 func License() string {
 	return `
@@ -9,7 +11,8 @@ func License() string {
 
 	libimagequant however is software that is licensed
 	under GPLv3 which is reproduced below. The source code of the relevant
-	portions can be found here: https://github.com/1lann/imagequant.
+	portions can be found at https://github.com/1lann/imagequant and
+	https://github.com/ImageOptim/libimagequant/tree/` + libimagequantCommitSHA + `
 
 	libimagequant is derived from code by Jef Poskanzer and Greg Roelofs
 	licensed under pngquant's original license (at the end of this file),
